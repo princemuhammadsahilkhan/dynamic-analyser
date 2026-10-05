@@ -11,5 +11,8 @@ requires-python = ">=3.10"
 dependencies = []
 license = { file = "LICENSE" }
 
+[project.scripts]
+dynamic-analyser = "dynamic_analysis.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
