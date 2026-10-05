@@ -1,57 +1,169 @@
 # Dynamic Analyser
 
-## What it does
-The Dynamic Analyser is an automated dynamic analysis engine designed to evaluate Android APKs for security vulnerabilities. It orchestrates a headless Android emulator, captures network and system evidence during runtime, and evaluates that evidence against a suite of 30 specialized security rules. Findings are then serialized into a concise, redacted JSON report.
+Automated Android APK dynamic analysis for security-focused runtime testing.
 
-## Supported Analysis Workflow
-1. The user provides a target APK via the CLI.
-2. The orchestrator boots a clean Android emulator using QEMU.
-3. The engine captures evidence across multiple dimensions (network traffic, IPC, filesystem, logs, etc.).
-4. The rule engine processes the collected evidence against `RULE-001` through `RULE-030`.
-5. The analyzer halts, tears down the emulator and proxy safely, and saves `findings.json` in a timestamped output directory.
+Dynamic Analyser boots an isolated Android runtime, observes application behavior, collects runtime evidence, and evaluates that evidence against a rule-based security engine. Results are written to structured JSON with sensitive values redacted.
 
-## Required Environment & Dependencies
-- Python 3.9+
-- QEMU and KVM (for running the headless emulator)
-- `mitmproxy` / `mitmdump` for intercepting network traffic
-- ADB (Android Debug Bridge) installed and accessible in the system path
-- Enough memory to support headless Android VMs
+## Highlights
 
-## APK Requirements
-- The APK must be a valid, standard Android application package.
-- Ensure the APK is untampered and verified before processing (e.g., matching the expected SHA-256 hash).
-- The current verified target is `apks/app-release.apk` with SHA-256 `c06568ac3d86ac9a0632db650ed577d2dbbcbae76b3f77eaef02ae903d736215`.
+- Headless Android analysis using QEMU/KVM and ADB
+- Runtime evidence collection across network, process, filesystem, IPC, and log sources
+- 30 built-in security rules (`RULE-001` through `RULE-030`)
+- Deterministic, session-scoped analysis state and cleanup
+- Structured `findings.json` output
+- Sensitive authentication and payload data redaction
+- Explicit success and failure states for automation-friendly use
+- CLI-first architecture designed to support a future API/UI layer without coupling the engine to a frontend
 
-### Quick Start (Version 1.0)
-1. **Install prerequisites**: Ensure QEMU, KVM, `mitmdump`, ADB, and Python 3.9+ are installed and on your PATH.
-2. **Prepare APK**: Place your target APK in an accessible directory (e.g. `apks/app-release.apk`).
-3. **Run analyser**: Execute the following command from the project root:
-   ```bash
-   PYTHONPATH=src python3 -m dynamic_analysis.cli --apk apks/app-release.apk
-   ```
-4. **Locate results**: The engine will generate a timestamped output directory (e.g., `output/27ea6114042c41bb/evidence/findings.json`).
-5. **Review findings**: Open `findings.json` to review any triggered security rules and collected evidence.
+## Architecture
 
-## Output and Interpreting `findings.json`
-- **Output Location**: Each run creates a new timestamped directory in the project root containing evidence and the `findings.json` report.
-- **Interpreting Results**: `findings.json` contains a list of triggered security rules. Each finding includes:
-  - `rule_id`: The ID of the triggered rule (e.g., `RULE-030`).
-  - `title`: A human-readable name of the vulnerability.
-  - `severity`: Denotes the risk level (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
-  - `confidence`: Indicates the certainty of the finding (`LOW`, `MEDIUM`, `HIGH`, `CERTAIN`).
-  - `evidence_summary`: A sanitized explanation of what triggered the rule.
+```text
+Target APK
+   │
+   ▼
+CLI
+   │
+   ▼
+Analysis Runner
+   ├── Android Runtime / QEMU
+   ├── ADB
+   ├── Network Proxy / mitmdump
+   └── Runtime Observation
+          │
+          ▼
+      Evidence Store
+          │
+          ▼
+       Rule Engine
+          │
+          ▼
+      findings.json
+```
 
-## Sensitive-Data Redaction Behavior
-The Dynamic Analyser is designed with strict redaction constraints. Any sensitive payload values (e.g., Basic Auth credentials, PII) are inherently redacted from findings. The evidence summary will confirm the presence of the data, but never expose the concrete payload itself.
+The analysis engine is intentionally independent of any web interface. A future product layer can be added as `Web UI → API → Dynamic Analyser Engine` without duplicating analysis logic.
 
-## Session Cleanup Behavior
-Cleanup is strictly bound to the `AnalysisSession`. When the analysis completes (or fails), the orchestrator safely and explicitly terminates its own managed processes (`qemu-system-x86_64`, `mitmdump`) without relying on host-wide destructive actions like `pkill` or `killall`.
+## Requirements
 
-## Operator Troubleshooting and Failure Handling
-- **Failure Handling**: If the orchestrator fails to launch the emulator or collect evidence, it will gracefully tear down partial environments and log the exception details.
-- **Known Limitations**:
-  - **Memory Mapping Errors**: When running analyses in rapid succession (e.g., back-to-back integration test suites), you may encounter kernel-level memory mapping warnings in QEMU (`cannot unmap ptr...`). This is a test-environment limitation due to nested virtualization constraints and not a production defect in the Analyser. Wait a few moments between sequential runs if this occurs.
-  - **No GUI / Frontend**: There is currently no web interface; the CLI is the singular entry point.
+Dynamic Analyser is a host-side security analysis tool and requires a Linux environment capable of running the Android runtime.
 
-## Release Candidate Status
-The engine is currently **READY WITH DOCUMENTED NON-BLOCKERS**. The CLI is fully sufficient for initial operational use, with a well-defined boundary for a future frontend or API integration layer to be added later.
+- Python 3.10+
+- QEMU with KVM support
+- Android Debug Bridge (`adb`)
+- Android emulator/runtime assets and the configured AVD
+- `mitmdump` / mitmproxy
+- Sufficient CPU, RAM, and virtualization support for the Android guest
+
+See [`docs/development/HOST_PREREQUISITES.md`](docs/development/HOST_PREREQUISITES.md) for environment details.
+
+## Installation
+
+Clone the repository and install it into a virtual environment:
+
+```bash
+git clone https://github.com/princemuhammadsahilkhan/dynamic-analyser.git
+cd dynamic-analyser
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
+
+Verify the installation:
+
+```bash
+dynamic-analyser --help
+```
+
+If you prefer not to install the console command, the module entry point remains available:
+
+```bash
+PYTHONPATH=src python3 -m dynamic_analysis.cli --help
+```
+
+## Quick Start
+
+Analyze an APK:
+
+```bash
+dynamic-analyser --apk /path/to/app.apk
+```
+
+Useful options:
+
+```text
+--apk PATH             Target APK
+--avd NAME             Android AVD name
+--output-dir PATH      Output directory
+--no-launch            Install/analyze without automatically launching the app
+--boot-timeout SECONDS Guest boot timeout
+```
+
+The command returns exit code `0` for a successful analysis and `1` when the analysis fails.
+
+Each run receives its own output location. The report includes structured findings and evidence references suitable for further processing.
+
+## Findings
+
+The primary report is `findings.json`. Findings contain structured fields such as:
+
+- `rule_id`
+- `title`
+- `severity`
+- `category`
+- `status`
+- `confidence`
+- `evidence_references`
+
+Sensitive values are deliberately omitted or redacted. For example, a detected HTTP Basic Authentication credential is reported as a security finding without exposing the Base64 credential payload.
+
+> Do not treat the absence of a finding as proof that an application is secure. Dynamic analysis only observes behavior exercised during the analysis session.
+
+## Security and Safety
+
+Dynamic Analyser is designed to keep analysis processes scoped to the active session. It does not rely on host-wide `pkill` or `killall` cleanup commands.
+
+The target APK is analyzed as supplied; the project does not require modifying, repackaging, or instrumenting the APK as part of the standard workflow.
+
+For security-sensitive reports, keep generated output outside version control. The repository's `.gitignore` excludes generated `output/` data and local APK artifacts.
+
+## Testing
+
+Run the unit suite:
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests/unit -p "test_*.py"
+```
+
+The v1.0.0 release was validated with 519 passing unit tests.
+
+Integration tests exercise the Android/QEMU runtime and are intentionally separate from the lightweight CI unit-test gate. On heavily nested virtualization environments, repeatedly starting QEMU instances can exhaust host memory mappings. Run those tests selectively on a suitable analysis host.
+
+## Project Status
+
+**v1.0.0 — released.**
+
+The core CLI workflow, rule engine, evidence collection, failure handling, serialization, and session cleanup have been validated for the v1.0 release.
+
+Known limitation: bulk sequential QEMU integration testing can be constrained by nested virtualization resources. This does not apply to the normal single-analysis CLI workflow when the host has adequate virtualization resources.
+
+## Documentation
+
+- [Architecture](docs/architecture/ARCHITECTURE.md)
+- [Requirements](docs/requirements/REQUIREMENTS.md)
+- [Traceability](docs/requirements/TRACEABILITY.md)
+- [Host prerequisites](docs/development/HOST_PREREQUISITES.md)
+- [Security documentation](docs/security/README.md)
+- [Licensing](docs/licensing/README.md)
+- [Contributing](CONTRIBUTING.md)
+
+## Contributing
+
+Contributions are welcome. Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request.
+
+Security vulnerabilities should not be reported through public issues. See [`SECURITY.md`](SECURITY.md) for the reporting process.
+
+## License
+
+Dynamic Analyser is released under the [MIT License](LICENSE).
+
+Copyright © 2026 Prince Muhammad Sahil Khan.
