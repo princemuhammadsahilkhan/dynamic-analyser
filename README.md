@@ -2,6 +2,11 @@
 
 Automated Android APK dynamic analysis for security-focused runtime testing.
 
+[![Unit Tests](https://github.com/princemuhammadsahilkhan/dynamic-analyser/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/princemuhammadsahilkhan/dynamic-analyser/actions/workflows/unit-tests.yml)
+[![Release](https://img.shields.io/github/v/release/princemuhammadsahilkhan/dynamic-analyser?display_name=tag&sort=semver)](https://github.com/princemuhammadsahilkhan/dynamic-analyser/releases)
+[![License](https://img.shields.io/github/license/princemuhammadsahilkhan/dynamic-analyser)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
+
 Dynamic Analyser boots an isolated Android runtime, observes application behavior, collects runtime evidence, and evaluates that evidence against a rule-based security engine. Results are written to structured JSON with sensitive values redacted.
 
 ## Highlights
@@ -155,6 +160,7 @@ Known limitation: bulk sequential QEMU integration testing can be constrained by
 - [Security documentation](docs/security/README.md)
 - [Licensing](docs/licensing/README.md)
 - [Contributing](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
 
 ## Contributing
 
