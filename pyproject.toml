@@ -8,10 +8,13 @@ version = "1.0.0"
 description = "Automated Android APK dynamic analysis platform"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = [
+dependencies = []
+license = { file = "LICENSE" }
+
+[project.optional-dependencies]
+test = [
     "pytest>=7.0.0",
 ]
-license = { file = "LICENSE" }
 
 [project.scripts]
 dynamic-analyser = "dynamic_analysis.cli:main"
