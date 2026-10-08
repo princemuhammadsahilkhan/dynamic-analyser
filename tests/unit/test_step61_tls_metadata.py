@@ -1,13 +1,23 @@
 import unittest
 import json
 import os
+import sys
 import tempfile
+import types
 from unittest.mock import MagicMock, patch
 
 from dynamic_analysis.proxy import ProxyManager, TrafficObservation
 from dynamic_analysis.rules import WeakTLSRule
 from dynamic_analysis.observation import EvidenceItem, EvidenceType
 from dynamic_analysis.session import AnalysisSession
+
+if "mitmproxy" not in sys.modules:
+    mitmproxy_module = types.ModuleType("mitmproxy")
+    mitmproxy_io_module = types.ModuleType("mitmproxy.io")
+    mitmproxy_io_module.FlowReader = object
+    mitmproxy_module.io = mitmproxy_io_module
+    sys.modules["mitmproxy"] = mitmproxy_module
+    sys.modules["mitmproxy.io"] = mitmproxy_io_module
 
 class TestStep61TLSMetadata(unittest.TestCase):
     def setUp(self):

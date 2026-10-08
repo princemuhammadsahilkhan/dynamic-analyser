@@ -1,6 +1,14 @@
 import json
-import pytest
 from typing import List
+try:
+    import pytest
+except ModuleNotFoundError:  # pragma: no cover - compatibility for unittest-only environments
+    class _PytestCompat:
+        @staticmethod
+        def fixture(func):
+            return func
+
+    pytest = _PytestCompat()
 
 from dynamic_analysis.rules import (
     SensitiveLogcatDataRule,

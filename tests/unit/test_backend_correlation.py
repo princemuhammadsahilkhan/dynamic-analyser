@@ -9,6 +9,7 @@ from dynamic_analysis.backend_correlation import (
     BackendEvidenceLink,
     BackendRuntimeCorrelation,
 )
+from dynamic_analysis.backend_contract import BackendContractInventory
 from dynamic_analysis.observation import EvidenceType
 
 
@@ -56,13 +57,18 @@ class TestBackendCorrelationModel(unittest.TestCase):
         self.assertIn(EvidenceType.BACKEND_CORRELATION.value, types)
         self.assertIn(EvidenceType.RESOURCE_CORRELATION.value, types)
 
+    @patch("dynamic_analysis.backend_correlation.SupabaseContractMapper.analyze")
     @patch.object(BackendCorrelationMapper, "_extract_binary_strings")
-    def test_backend_correlation_mapper_correlate(self, mock_extract):
+    def test_backend_correlation_mapper_correlate(self, mock_extract, mock_analyze):
         mock_extract.return_value = (
             "https://tqzoozpckrmmprwnhweg.supabase.co\n"
             "users\ncourses\nenrollments\nquizzes\nannouncements\ndiscussions\n"
             "modules\ncertificates\nroles\nprofile-images\nmentorcraft-images\n"
             "/realtime/v1\n/rest/v1/\n/storage/v1/\n"
+        )
+        mock_analyze.return_value = BackendContractInventory(
+            target_apk="apks/app-release.apk",
+            primary_backend_url="https://tqzoozpckrmmprwnhweg.supabase.co",
         )
 
         mapper = BackendCorrelationMapper("apks/app-release.apk")
