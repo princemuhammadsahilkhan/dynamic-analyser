@@ -2,7 +2,7 @@
 
 import json
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from dynamic_analysis.backend_correlation import (
     BackendCorrelationMapper,
@@ -65,7 +65,10 @@ class TestBackendCorrelationModel(unittest.TestCase):
             "/realtime/v1\n/rest/v1/\n/storage/v1/\n"
         )
 
-        mapper = BackendCorrelationMapper("apks/app-release.apk")
+        mapper = BackendCorrelationMapper(
+            "apks/app-release.apk",
+            contract_inventory=MagicMock(primary_backend_url="https://tqzoozpckrmmprwnhweg.supabase.co"),
+        )
         correlation = mapper.correlate()
 
         self.assertEqual(correlation.primary_backend_url, "https://tqzoozpckrmmprwnhweg.supabase.co")

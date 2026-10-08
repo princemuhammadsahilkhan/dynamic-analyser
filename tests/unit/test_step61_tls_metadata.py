@@ -1,6 +1,7 @@
 import unittest
 import json
 import os
+import types
 import tempfile
 from unittest.mock import MagicMock, patch
 
@@ -11,6 +12,17 @@ from dynamic_analysis.session import AnalysisSession
 
 class TestStep61TLSMetadata(unittest.TestCase):
     def setUp(self):
+        fake_mitmproxy = types.ModuleType("mitmproxy")
+        fake_mitmproxy_io = types.ModuleType("mitmproxy.io")
+        fake_mitmproxy_io.FlowReader = MagicMock()
+        fake_mitmproxy.io = fake_mitmproxy_io
+        self._mitmproxy_modules = patch.dict(
+            "sys.modules",
+            {"mitmproxy": fake_mitmproxy, "mitmproxy.io": fake_mitmproxy_io},
+        )
+        self._mitmproxy_modules.start()
+        self.addCleanup(self._mitmproxy_modules.stop)
+
         self.session = AnalysisSession(apk_path="fake.apk")
         self.rule = WeakTLSRule()
         self.proxy_manager = ProxyManager(binary_path="mitmdump")

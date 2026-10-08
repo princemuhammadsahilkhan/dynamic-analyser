@@ -33,7 +33,20 @@ class TestCertificateTrustManager(unittest.TestCase):
 
     def test_audit_local_ca_success(self) -> None:
         """Verify local CA audit extracts metadata without private keys."""
-        details = self.cert_manager.audit_local_ca()
+        with patch("os.path.exists", return_value=True), patch(
+            "subprocess.run",
+            return_value=MagicMock(
+                stdout=(
+                    "subject=CN = mitmproxy, O = mitmproxy\n"
+                    "issuer=CN = mitmproxy, O = mitmproxy\n"
+                    "notBefore=Sep 23 00:00:00 2026 GMT\n"
+                    "notAfter=Sep 22 00:00:00 2036 GMT\n"
+                    "sha256 Fingerprint=EF:57:83\n"
+                    "c8750f0d\n"
+                )
+            ),
+        ):
+            details = self.cert_manager.audit_local_ca()
         self.assertIsInstance(details, CertificateDetails)
         self.assertIn("mitmproxy", details.subject)
         self.assertIn("mitmproxy", details.issuer)
@@ -46,8 +59,18 @@ class TestCertificateTrustManager(unittest.TestCase):
         with self.assertRaises(CertificateNotFoundError):
             bad_manager.audit_local_ca()
 
-    def test_audit_guest_trust_store(self) -> None:
+    @patch.object(CertificateTrustManager, "audit_local_ca")
+    def test_audit_guest_trust_store(self, mock_audit_local_ca) -> None:
         """Verify guest trust store audit returns correct status model."""
+        mock_audit_local_ca.return_value = CertificateDetails(
+            cert_path="/home/kali/.mitmproxy/mitmproxy-ca-cert.pem",
+            subject="CN=mitmproxy",
+            issuer="CN=mitmproxy",
+            not_before="Sep 23 2026",
+            not_after="Sep 22 2036",
+            sha256_fingerprint="EF:57:83",
+            subject_hash_old="c8750f0d",
+        )
         self.mock_orchestrator.shell.side_effect = [
             ShellResult(stdout="uid=0(root) gid=0(root)", stderr="", exit_code=0), # su 0 id
             ShellResult(stdout="", stderr="Read-only file system", exit_code=1),    # touch /system
@@ -92,8 +115,18 @@ class TestCertificateTrustManager(unittest.TestCase):
         self.mock_orchestrator.shell.assert_called_with("su 0 rm -f /data/misc/user/0/cacerts-added/c8750f0d.0")
         self.assertIsNone(self.cert_manager._installed_user_file)
 
-    def test_get_evidence_items_no_private_keys(self) -> None:
+    @patch.object(CertificateTrustManager, "audit_local_ca")
+    def test_get_evidence_items_no_private_keys(self, mock_audit_local_ca) -> None:
         """Verify evidence items contain cert audit and no private keys."""
+        mock_audit_local_ca.return_value = CertificateDetails(
+            cert_path="/home/kali/.mitmproxy/mitmproxy-ca-cert.pem",
+            subject="CN=mitmproxy",
+            issuer="CN=mitmproxy",
+            not_before="Sep 23 2026",
+            not_after="Sep 22 2036",
+            sha256_fingerprint="EF:57:83",
+            subject_hash_old="c8750f0d",
+        )
         items = self.cert_manager.get_evidence_items()
         self.assertTrue(len(items) >= 1)
         self.assertEqual(items[0].evidence_type, EvidenceType.CERTIFICATE_AUDIT.value)
